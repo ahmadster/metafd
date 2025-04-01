@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<!--
+ME·TA·FD
+Metar, TAF, and Forecast Discussion, highlighter.
+
+DISCLAIMER
+This script is provided "as is" and "as available" without any warranties, express or implied, including but not limited to the implied warranties of merchantability, fitness for a particular purpose, and non-infringement. Author does not guarantee the accuracy, completeness, reliability, or timeliness of the information provided. Any reliance on the information is strictly at your own risk. Author shall not be liable for any damages of any kind arising out of or in connection with the use of this script, including but not limited to direct, indirect, incidental, consequential, or punitive damages, even if advised of the possibility of such damages.
+
+ATTRIBUTION
+Built by Ahmad Baitalmal @ahmadster.bsky.social for my personal use.
+
+This script directs YOUR device to access the WX information from AviationWeather.gov DIRECTLY then adds color and highlights.
+
+>> The API lookups may quietly fail, this script may have bugs that misrepresent important weather information <<
+
+By using this script your agree that the author may not be held responsible IN ANY WAY SHAPE OR FORM for the use of this tool and that YOU are responsible for the actual the lookup and interpretation of weather information.
+
+Warning! Fly at your own risk.
+-->
+<script>
+  // Configuration
+  // Set your minimums here
+  const LOW_VISIBILITY = 5
+  const BAD_VISIBILITY = 3
+  const LOW_SPREAD = 3
+  const BAD_SPREAD = 2
+  const HIGH_WIND = 13
+  const BAD_WIND = 15
+  const LOW_CLOUDBASE = 25
+  const BAD_CLOUDBASE = 20
+
+  theMetars = ``
+  theTAFs = ``
+  theFD = ``
+
+  currentTimestamp = ``
+</script>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- <meta http-equiv="refresh" content="1" /> -->
+    <title>ME·TA·FD</title>
+    <meta
+      name="viewport"
+      content="target-densitydpi=device-dpi, width=device-width, user-scalable=no, maximum-scale=1, minimum-scale=1"
+    />
+    <link
+      href="https://fonts.cdnfonts.com/css/jetbrains-mono"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        font-family: 'JetBrains Mono', monospace;
+        line-height: 100%;
+        white-space: pre-wrap;
+        margin: 0;
+        padding: 0;
+      }
+      #info {
+        display: none;
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background-color: black;
+      }
+      #infoButton {
+        font-size: 2rem;
+      }
+      #terms {
+        color: #0077aa;
+        margin-top: -1.5rem;
+      }
+      body {
+        background-color: black;
+        color: #aaa;
+        padding: 1rem;
+        font-size: 0.9rem;
+      }
+      div.airport,
+      div.metar,
+      div.taf {
+        display: inline;
+      }
+      div.airport {
+        display: block;
+      }
+      div.metar {
+        border-bottom: 1px dotted #555;
+        display: block;
+        padding-bottom: 0.3rem;
+        margin-bottom: -0.7rem;
+      }
+      *[current] {
+        background-color: #0077aa55;
+        color: white;
+      }
+
+      .good {
+        color: lime;
+      }
+
+      .bad {
+        color: red;
+      }
+
+      .ugh {
+        color: orange;
+      }
+
+      .headerDiv {
+        color: white;
+        position: fixed;
+        display: flex;
+        flex-flow: row nowrap;
+        justify-content: space-between;
+        background-color: #0077aa55;
+        left: 0;
+        right: 0;
+        top: 0;
+        height: 1.5rem;
+        font-size: 1.5rem;
+      }
+      .timeBox {
+        display: flex;
+        flex-flow: column nowrap;
+        font-size: 1.5rem;
+        background-color: #002b3dd8;
+        padding: 0 1rem 0 1rem;
+        justify-content: center;
+      }
+      .timeBox * {
+        white-space: pre;
+      }
+      #utcTime {
+        color: white;
+      }
+      #localTime {
+        color: white;
+      }
+      .sliderDiv {
+        display: flex;
+        flex-flow: row nowrap;
+        position: fixed;
+        left: 0rem;
+        right: 0;
+        bottom: 0;
+      }
+
+      .slider {
+        -webkit-appearance: none;
+        width: 100%;
+        height: 4rem;
+        background: black;
+        outline: none;
+        opacity: 0.9;
+      }
+
+      .slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 4rem;
+        height: 4rem;
+        background: #0077aa;
+        cursor: pointer;
+        border-radius: 0 0.5rem 0.5rem 0;
+      }
+    </style>
+    <script>
+      // holder of all data
+      let db = {}
+
+      function colorize(d) {
+        let td = d
+        // the good stuff
+        let gs = [/\bSKC\b/g, /\bCLR\b/g]
+        for (const gsp of gs) {
+          let m = td.match(gsp)
+          if (!m) continue
+          td = td.replaceAll(gsp, `<span class="good" />${m[0]}</span>`)
+        }
+        // the bad stuff
+        gs = [/\bFG\b/g, /\bBR\b/g, /\bHZ\b/g]
+        for (const gsp of gs) {
+          let m = td.match(gsp)
+          if (!m) continue
+          td = td.replaceAll(gsp, `<span class="bad"/>${m[0]}</span>`)
+        }
+
+        // other visibility
+        // / 10SM/g, / P6SM/g, / 6SM/g
+        for (const m of td.matchAll(/\d? P?(1?\/?\d)SM/g)) {
+          let [vpat, vis] = m
+          vis = parseInt(vis)
+          color = 'good'
+          if (vis <= BAD_VISIBILITY) {
+            color = 'bad'
+          } else if (vis <= LOW_VISIBILITY) {
+            color = 'ugh'
+          }
+          td = td.replaceAll(vpat, `<span class="${color}"/>${vpat}</span>`)
+        }
+
+        // temp due points
+        var color, p
+        p = / (\d?\d)\/(\d?\d) /g
+        for (const m of td.matchAll(p)) {
+          var [token, temp, due] = m
+          color = 'good'
+          let spread = parseInt(temp) - parseInt(due)
+          if (spread <= BAD_SPREAD) {
+            color = 'bad'
+          } else if (spread <= LOW_SPREAD) {
+            color = 'ugh'
+          }
+          var replacement = `<span class="${color}"/>${token}</span>`
+          td = td.replaceAll(token, replacement)
+        }
+
+        // wind
+        p = /(\d\d\d|VRB)(\d\d)G?(\d\d?)?KT/g
+        for (const m of td.matchAll(p)) {
+          var [token, dir, kt, gust] = m
+          color = 'good'
+          kts = parseInt(kt)
+          if (kts >= BAD_WIND) {
+            color = 'bad'
+          } else if (kts >= HIGH_WIND) {
+            color = 'ugh'
+          }
+          let g = ``
+          if (gust) {
+            let gts = parseInt(gust)
+            g = `G<span class="good" />${gts}</span>`
+            if (gts >= BAD_WIND) {
+              g = `G<span class="bad"/>${gts}</span>`
+            } else if (gts >= HIGH_WIND) {
+              g = `G<span class="ugh"/>${gts}</span>`
+            }
+          }
+          var replacement = `${dir}<span class="${color}"/>${kt}</span>${g}KT`
+          td = td.replaceAll(token, replacement)
+        }
+
+        // cover
+        let cc = [
+          / ?SCT(\d\d\d) ?/g,
+          / ?FEW(\d\d\d) ?/g,
+          / ?BKN(\d\d\d) ?/g,
+          / ?OVC(\d\d\d) ?/g,
+        ]
+        for (const ccp of cc) {
+          let m = td.matchAll(ccp)
+          if (!m) continue
+          m = Array.from(m)
+          for (const _ccv of m) {
+            let [cct, ccv] = _ccv
+            ccv = parseInt(ccv)
+            color = 'good'
+            if (ccv <= BAD_CLOUDBASE) {
+              color = 'bad'
+            } else if (ccv <= LOW_CLOUDBASE) {
+              color = 'ugh'
+            }
+            td = td.replaceAll(cct, `<span class="${color}"/>${cct}</span>`)
+          }
+        }
+
+        // highlight current time
+        td = td.replaceAll(/(KPAO.+\n)/g, `<span class="current"/>$1</span>`)
+        return td
+      }
+      function colorizefd(data) {
+        let fd = data
+        fd = fd.replaceAll(/\b(VFR)\b/g, `<span class="good"/>$1</span>`)
+        fd = fd.replaceAll(/\b(MVFR)\b/g, `<span class="ugh"/>$1</span>`)
+        fd = fd.replaceAll(/\b(IFR|LIFR)\b/g, `<span class="bad"/>$1</span>`)
+        return fd
+      }
+
+      function multiplex(metar, taf) {
+        let data = ''
+        // metars
+        let metars = metar
+          .split('\n')
+          .filter(x => x.length > 0) // remove empty lines
+          .map(x => x.trim()) // trim metar lines
+        // collect airports
+        metars.forEach(x => {
+          let m = x.match(
+            /^(?<airport>\S\S\S?\S?) (?<day>\d\d)(?<hour>\d\d)(?<minute>\d\d)Z/,
+          )
+          if (!m) return
+          m.groups.metar = x
+          db[m.groups.airport] = m.groups
+        })
+
+        // tafs
+        // split on \n\n
+        let tafs = taf
+          .split('\n\n')
+          .filter(x => x.length > 0) // remove empty lines
+          .map(x => x.trim()) // trim metar lines
+
+        tafs.forEach(x => {
+          let m = x.match(
+            /^(?<airport>\S\S\S?\S?) (?<day>\d\d)(?<hour>\d\d)(?<minute>\d\d)Z/,
+          )
+          if (!m) return
+          m.groups.taf = x
+          // if the airport doesn't exist, create it
+          if (!db[m.groups.airport]) db[m.groups.airport] = m.groups
+          db[m.groups.airport].taf = x
+        })
+
+        // for each airport, metar and taf
+        Object.keys(db).forEach(x => {
+          let a = db[x]
+          data += `<div class='airport' icao='${x}'>`
+          if (a.metar) data += `<div class='metar'>${a.metar}</div>\n`
+          if (a.taf) data += `<div class='taf'>${tafLines(a.taf)}</div>\n`
+          data += '</div>\n'
+        })
+        return data
+      }
+      // add spans for taf times
+      function tafLines(taf) {
+        let t = taf
+
+        let tafs = t.split('\n')
+
+        let lines = []
+        // collect the starting times of each line
+        let now = new Date()
+        // new Date(1743445341143) // Mar 31st
+        tafs.forEach(x => {
+          // find the start
+          let line = false
+          let m
+          // airport line?
+          m = x.match(
+            /^(?<airport>\S\S\S?\S?) (?<_day>\d\d)(?<_hour>\d\d)(?<_minute>\d\d)Z (?<fday>\d\d)(?<fhour>\d\d)\/(?<tday>\d\d)(?<thour>\d\d)/,
+          )
+          if (m) {
+            // found airport line
+            line = m.groups
+            line.line = x
+            let fday = parseInt(m.groups.fday)
+            let fhour = parseInt(m.groups.fhour)
+            let tday = parseInt(m.groups.tday)
+            let thour = parseInt(m.groups.thour)
+            let lineF = new Date(
+              Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), fday, fhour),
+            )
+            if (fday < now.getUTCDate()) {
+              lineF = new Date(
+                Date.UTC(
+                  now.getUTCFullYear(),
+                  now.getUTCMonth() + 1,
+                  fday,
+                  fhour,
+                ),
+              )
+            }
+            line.fromTime = lineF
+            line.fromTimeUTC = lineF.toUTCString()
+          }
+
+          m = x.match(
+            /\s?(?<tempo>TEMPO) (?<fday>\d\d)(?<fhour>\d\d)\/(?<tday>\d\d)(?<thour>\d\d)/,
+          )
+          if (!line && m) {
+            // found tempo line
+            line = m.groups
+            line.line = x
+            let fday = parseInt(m.groups.fday)
+            let fhour = parseInt(m.groups.fhour)
+            let tday = parseInt(m.groups.tday)
+            let thour = parseInt(m.groups.thour)
+            let lineF = new Date(
+              Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), fday, fhour),
+            )
+            if (fday < now.getUTCDate()) {
+              lineF = new Date(
+                Date.UTC(
+                  now.getUTCFullYear(),
+                  now.getUTCMonth() + 1,
+                  fday,
+                  fhour,
+                ),
+              )
+            }
+            line.fromTime = lineF
+            line.fromTimeUTC = lineF.toUTCString()
+          }
+          m = x.match(/\s?(?<fm>FM)(?<day>\d\d)(?<hour>\d\d)(?<minute>\d\d)/)
+          if (!line && m) {
+            // found fm line
+            line = m.groups
+            line.line = x
+            let fday = parseInt(m.groups.day)
+            let fhour = parseInt(m.groups.hour)
+            let fminute = parseInt(m.groups.minute)
+            let lineF = new Date(
+              Date.UTC(
+                now.getUTCFullYear(),
+                now.getUTCMonth(),
+                fday,
+                fhour,
+                fminute,
+              ),
+            )
+            if (fday < now.getUTCDate()) {
+              lineF = new Date(
+                Date.UTC(
+                  now.getUTCFullYear(),
+                  now.getUTCMonth() + 1,
+                  fday,
+                  fhour,
+                  fminute,
+                ),
+              )
+            }
+            line.fromTime = lineF
+            line.fromTimeUTC = lineF.toUTCString()
+          }
+          if (line) lines.push(line)
+        })
+        // set each line's toTime to the next line's fromTime
+        lines.reverse()
+        let prevTime = false
+        lines.forEach(x => {
+          if (prevTime) {
+            x.toTime = prevTime
+            x.toTimeUTC = prevTime.toUTCString()
+          }
+          if (x.fromTime) prevTime = x.fromTime
+        })
+        lines.reverse()
+        // add the spans
+        let tafLines = []
+        lines.forEach(tafLine => {
+          let toTime = ''
+          if (tafLine.toTime) toTime = ` to='${tafLine.toTime.getTime()}'`
+          tafLines.push(
+            `<span class='tafLine' from='${tafLine.fromTime.getTime()}'${toTime}>${
+              tafLine.line
+            }</span>`,
+          )
+        })
+
+        return tafLines.join('\n')
+      }
+      function padZero(n) {
+        let leading0 = ''
+        if (n < 10) {
+          leading0 = '0'
+        }
+        return `${leading0}${n}`
+      }
+
+      function timeSlid() {
+        let slider = document.getElementById('timeSlider')
+        let offset = parseInt(slider.value)
+
+        // set the header label
+        let utcTime = document.getElementById('utcTime')
+        let localTime = document.getElementById('localTime')
+        let theNow = new Date()
+        theNow.setUTCHours(theNow.getUTCHours() + offset)
+        utcTime.innerHTML = `${padZero(theNow.getUTCDate())} ${padZero(
+          theNow.getUTCHours(),
+        )}:00 Z`
+        localTime.innerHTML = `${padZero(theNow.getDate())} ${theNow
+          .toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true,
+          })
+          .replace(/:\d\d /, ':00 ')}`
+        // activate the proper taf lines
+        let sTime = theNow.getTime()
+        let tls = document.getElementsByClassName('tafLine')
+
+        for (const tl of tls) {
+          let active = false
+          let from = false
+          let to = false
+          try {
+            from = parseInt(tl.attributes.from.value)
+            to = parseInt(tl.attributes.to.value)
+          } catch (_) {}
+          if (from && sTime >= from) {
+            if (!to) {
+              active = true
+            } else if (to && sTime <= to) {
+              active = true
+            }
+          }
+          if (active) {
+            tl.setAttribute('current', true)
+          } else {
+            tl.removeAttribute('current')
+          }
+        }
+      }
+
+      window.onload = () => {
+        let info = `
+<div id="info">
+<h1>ME·TA·FD</h1>
+Metar, TAF, and Forecast Discussion, highlighter.
+
+<span style="color:red; text-decoration:underline">DISCLAIMER</span>
+This script is provided "as is" and "as available" without any warranties, express or implied, including but not limited to the implied warranties of merchantability, fitness for a particular purpose, and non-infringement. Author does not guarantee the accuracy, completeness, reliability, or timeliness of the information provided. Any reliance on the information is strictly at your own risk. Author shall not be liable for any damages of any kind arising out of or in connection with the use of this script, including but not limited to direct, indirect, incidental, consequential, or punitive damages, even if advised of the possibility of such damages.
+
+<span style="color:red; text-decoration:underline">ATTRIBUTION</span>
+Built by Ahmad Baitalmal <a href="https://bsky.app/profile/ahmadster.bsky.social">@ahmadster.bsky.social</a> for my personal use.
+
+This script directs YOUR device to access the WX information from AviationWeather.gov DIRECTLY then adds color and highlights.
+
+<b><span style="color:red">&gt;&gt; The API lookups may quietly fail, this script may have bugs that misrepresent important weather information &lt;&lt;</span></b>
+
+By using this script your agree that the author may not be held responsible IN ANY WAY SHAPE OR FORM for the use of this tool and that YOU are responsible for the actual the lookup and interpretation of weather information.
+
+<span style="color:red">Warning! Fly at your own risk.</span>
+<center>
+  <button id="infoButton" onClick="document.getElementById('info').style.display='none';">OK</button>
+</center>
+</div>
+
+
+
+
+
+
+      `
+        // sample test data
+        let metar = `KPAO 311447Z 21007KT 10SM BKN035 12/09 A3000
+
+KNUQ 311535Z AUTO 25006KT 10SM FEW042 SCT050 BKN065 14/08 A3001 RMK AO2
+
+KSJC 311453Z 00000KT 10SM FEW025 BKN050 OVC100 13/08 A3000 RMK AO2 SLP158 60003 T01330083 52013
+
+KLVK 311512Z AUTO 24005KT 10SM BKN024 BKN033 OVC045 12/09 A2999 RMK AO2 T01170094
+
+KHAF 311535Z AUTO 18008G13KT 160V220 3SM BR FEW005 FEW034 BKN060 12/12 A3001 RMK AO2
+
+KHWD 311454Z 22005KT 10SM BKN070 14/11 A2999 RMK AO2 SLP164 T01390106 53007
+
+KOAK 311453Z 24011KT 10SM FEW010 BKN060 BKN080 13/09 A2999 RMK AO2 SLP156 T01280094 53009`
+
+        let taf = `KSJC 311137Z 3112/0112 20008KT P6SM -SHRA SCT035 BKN060 
+  FM312000 26015G25KT P6SM VCSH BKN050 
+  FM010400 19007KT P6SM BKN050
+
+KSFO 311511Z 23008KT 10SM FEW006 BKN035 BKN065 13/09 A2999 RMK AO2 T01280094
+KSFO 311449Z 3115/0118 23012KT P6SM VCSH BKN025 OVC050 
+  FM312100 25020G30KT 5SM -SHRA BKN050 
+  FM010500 25015KT P6SM BKN050 
+  FM010900 24015G25KT P6SM -SHRA SCT030 BKN050
+
+KLVK 311137Z 3112/0112 25012G20KT 5SM -SHRA BKN035 
+  FM010300 23008KT P6SM BKN050
+
+KHAF 311137Z 3112/0112 20010KT 3SM BR VCSH BKN004 OVC030 
+  FM311800 27015G23KT P6SM BKN050 
+  FM010600 29014G22KT 5SM -SHRA BR OVC050
+
+KOAK 311137Z 3112/0118 23010KT P6SM VCSH OVC025 
+  FM312100 26020G30KT 5SM -SHRA BKN050 
+  FM010400 25015KT P6SM VCSH BKN050`
+        let fd = `(EXTRACTED FROM FXUS66 KMTR 261821)
+National Weather Service San Francisco CA
+1121 AM PDT Wed Mar 26 2025
+
+(18Z TAFS)
+Issued at 1119 AM PDT Wed Mar 26 2025
+
+IFR to MVFR conditions across much of the Bay Area and Central Coast
+late this morning (the exceptions are KSJC and KLVK which are VFR)
+as the marine layer deepened overnight. Expecting low clouds to
+linger through much of the day in the Bay Area and coastal terminals
+while inland areas have a greater probability of low clouds lifting.
+By the late afternoon, an approaching cold front will bring a
+moderate southerly to southwesterly breeze and light rain,
+particularly to the North Bay terminals. IFR to MVFR ceilings will
+prevail before, during, and after frontal passage. Onshore flow will
+weaken in wake of the frontal passage. By tomorrow morning lingering
+precipitation will be possible, but confidence is not high enough to
+include in the current TAFs. Low clouds are forecast to lift by mid-
+to-late Thursday morning.
+
+Vicinity of SFO...SFO and OAK have been off and on with MVFR
+ceilings and are expected to continue that way through much of the
+day. A band of very light rain will impact the Bay Area terminals
+this evening, but the more noticeable impact will be strong
+southwest winds before the front moves through overnight. South-
+southwest winds will prevail into tomorrow with ceilings forecast to
+lift by Thursday afternoon.
+
+SFO Bridge Approach...Greater potential for VFR conditions over the
+approach through this afternoon/evening. Otherwise, similar to SFO.
+
+Monterey Bay Terminals...MVFR conditions have returned to the region
+with MVFR expected much of the day at KMRY (may have a brief period
+when we mix out to VFR) with KSNS forecast to lift to VFR by around
+20Z. MVFR conditions expected to return late this evening and into
+the overnight hours. Winds ease overnight and become southerly early
+Thursday morning at KSNS.
+
+RGass
+MARINE...RGass
+
+Visit us at www.weather.gov/sanfrancisco
+
+Follow us on Facebook, X, and YouTube at:
+www.facebook.com/nwsbayarea
+x.com/nwsbayarea
+www.youtube.com/nwsbayarea`
+
+        let timeSlider = `
+<div class="headerDiv">
+  <div >ME·TA·FD</div>
+  <div id="terms" onClick="document.getElementById('info').style.display='block';">
+⇢ Terms of Use ⇠
+  </div>
+</div>
+<div class="sliderDiv">
+  <div class="timeBox">
+    <div id="localTime">local</div>
+    <div id="utcTime">utc</div>
+</div>
+    <input class="slider" type="range" id="timeSlider" min="0" max="30" value="0" oninput="timeSlid(event)"/>
+</div>`
+        window.setTimeout(timeSlid, 200)
+        if (currentTimestamp !== '') {
+          currentTimestamp = new Date(currentTimestamp)
+        } else {
+          currentTimestamp = new Date()
+        }
+        // 13 numbers
+        if (theMetars !== '') metar = theMetars
+        if (theTAFs !== '') taf = theTAFs
+        if (theFD !== '') fd = theFD
+        let data = multiplex(metar, taf)
+        document.body.innerHTML =
+          `Retrieved ${currentTimestamp.toLocaleTimeString()}\n\n` +
+          colorize(data) +
+          '\n\n<hr>' +
+          colorizefd(fd) +
+          timeSlider +
+          info
+      }
+    </script>
+  </head>
+  <body />
+</html>
