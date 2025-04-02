@@ -20,6 +20,12 @@
         margin: 0;
         padding: 0;
       }
+      body {
+        background-color: blue;
+        color: #aaa;
+        padding: 1rem;
+        font-size: 0.9rem;
+      }
       #info {
         display: none;
         position: fixed;
@@ -35,12 +41,6 @@
       #terms {
         color: #0077aa;
         margin-top: -1.5rem;
-      }
-      body {
-        background-color: black;
-        color: #aaa;
-        padding: 1rem;
-        font-size: 0.9rem;
       }
       div.airport,
       div.metar,
@@ -500,90 +500,6 @@ By using this script your agree that the author may not be held responsible IN A
 
 
       `
-        // sample test data
-        let metar = `KPAO 311447Z 21007KT 10SM BKN035 12/09 A3000
-
-KNUQ 311535Z AUTO 25006KT 10SM FEW042 SCT050 BKN065 14/08 A3001 RMK AO2
-
-KSJC 311453Z 00000KT 10SM FEW025 BKN050 OVC100 13/08 A3000 RMK AO2 SLP158 60003 T01330083 52013
-
-KLVK 311512Z AUTO 24005KT 10SM BKN024 BKN033 OVC045 12/09 A2999 RMK AO2 T01170094
-
-KHAF 311535Z AUTO 18008G13KT 160V220 3SM BR FEW005 FEW034 BKN060 12/12 A3001 RMK AO2
-
-KHWD 311454Z 22005KT 10SM BKN070 14/11 A2999 RMK AO2 SLP164 T01390106 53007
-
-KOAK 311453Z 24011KT 10SM FEW010 BKN060 BKN080 13/09 A2999 RMK AO2 SLP156 T01280094 53009`
-
-        let taf = `KSJC 311137Z 3112/0112 20008KT P6SM -SHRA SCT035 BKN060 
-  FM312000 26015G25KT P6SM VCSH BKN050 
-  FM010400 19007KT P6SM BKN050
-
-KSFO 311511Z 23008KT 10SM FEW006 BKN035 BKN065 13/09 A2999 RMK AO2 T01280094
-KSFO 311449Z 3115/0118 23012KT P6SM VCSH BKN025 OVC050 
-  FM312100 25020G30KT 5SM -SHRA BKN050 
-  FM010500 25015KT P6SM BKN050 
-  FM010900 24015G25KT P6SM -SHRA SCT030 BKN050
-
-KLVK 311137Z 3112/0112 25012G20KT 5SM -SHRA BKN035 
-  FM010300 23008KT P6SM BKN050
-
-KHAF 311137Z 3112/0112 20010KT 3SM BR VCSH BKN004 OVC030 
-  FM311800 27015G23KT P6SM BKN050 
-  FM010600 29014G22KT 5SM -SHRA BR OVC050
-
-KOAK 311137Z 3112/0118 23010KT P6SM VCSH OVC025 
-  FM312100 26020G30KT 5SM -SHRA BKN050 
-  FM010400 25015KT P6SM VCSH BKN050`
-        let fd = `(EXTRACTED FROM FXUS66 KMTR 261821)
-National Weather Service San Francisco CA
-1121 AM PDT Wed Mar 26 2025
-
-(18Z TAFS)
-Issued at 1119 AM PDT Wed Mar 26 2025
-
-IFR to MVFR conditions across much of the Bay Area and Central Coast
-late this morning (the exceptions are KSJC and KLVK which are VFR)
-as the marine layer deepened overnight. Expecting low clouds to
-linger through much of the day in the Bay Area and coastal terminals
-while inland areas have a greater probability of low clouds lifting.
-By the late afternoon, an approaching cold front will bring a
-moderate southerly to southwesterly breeze and light rain,
-particularly to the North Bay terminals. IFR to MVFR ceilings will
-prevail before, during, and after frontal passage. Onshore flow will
-weaken in wake of the frontal passage. By tomorrow morning lingering
-precipitation will be possible, but confidence is not high enough to
-include in the current TAFs. Low clouds are forecast to lift by mid-
-to-late Thursday morning.
-
-Vicinity of SFO...SFO and OAK have been off and on with MVFR
-ceilings and are expected to continue that way through much of the
-day. A band of very light rain will impact the Bay Area terminals
-this evening, but the more noticeable impact will be strong
-southwest winds before the front moves through overnight. South-
-southwest winds will prevail into tomorrow with ceilings forecast to
-lift by Thursday afternoon.
-
-SFO Bridge Approach...Greater potential for VFR conditions over the
-approach through this afternoon/evening. Otherwise, similar to SFO.
-
-Monterey Bay Terminals...MVFR conditions have returned to the region
-with MVFR expected much of the day at KMRY (may have a brief period
-when we mix out to VFR) with KSNS forecast to lift to VFR by around
-20Z. MVFR conditions expected to return late this evening and into
-the overnight hours. Winds ease overnight and become southerly early
-Thursday morning at KSNS.
-
-RGass
-MARINE...RGass
-
-Visit us at www.weather.gov/sanfrancisco
-
-Follow us on Facebook, X, and YouTube at:
-www.facebook.com/nwsbayarea
-x.com/nwsbayarea
-www.youtube.com/nwsbayarea`
-
         let timeSlider = `
 <div class="headerDiv">
   <div >ME·TA·FD</div>
@@ -598,6 +514,12 @@ www.youtube.com/nwsbayarea`
 </div>
     <input class="slider" type="range" id="timeSlider" min="0" max="30" value="0" oninput="timeSlid(event)"/>
 </div>`
+
+        // sample test data
+        let metar = ``
+        let taf = ``
+        let fd = ``
+
         window.setTimeout(timeSlid, 200)
         if (currentTimestamp !== '') {
           currentTimestamp = new Date(currentTimestamp)
