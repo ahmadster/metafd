@@ -40,6 +40,7 @@
       }
       #terms {
         color: #0077aa;
+        font-size: 0.8rem;
       }
       div.airport,
       div.metar,
@@ -104,6 +105,11 @@
         color: orange;
       }
 
+      .danger {
+        color: white;
+        background-color: red;
+        border-radius: 0.2rem;
+      }
       .headerDiv {
         color: white;
         position: fixed;
@@ -160,7 +166,7 @@
         -webkit-appearance: none;
         width: 100%;
         height: 4rem;
-        background: black;
+        background: none;
         outline: none;
         opacity: 0.9;
         padding-left: 1.7rem;
@@ -266,38 +272,44 @@
 
         // cover
         let cc = [
-          /\bSCT(\d\d\d)\b/g,
-          /\bFEW(\d\d\d)\b/g,
-          /\bBKN(\d\d\d)\b/g,
-          /\bOVC(\d\d\d)\b/g,
+          /\b(SCT)(\d\d\d)(\w\w)?\b/g,
+          /\b(FEW)(\d\d\d)(\w\w)?\b/g,
+          /\b(BKN)(\d\d\d)(\w\w)?\b/g,
+          /\b(OVC)(\d\d\d)(\w\w)?\b/g,
         ]
         for (const ccp of cc) {
           let m = td.matchAll(ccp)
           if (!m) continue
           m = Array.from(m)
           for (const _ccv of m) {
-            let [cct, ccv] = _ccv
-            ccv = parseInt(ccv)
+            console.log(_ccv)
+            let [matched, layerType, layerBase, cloudType] = _ccv
+            let ccv = parseInt(layerBase)
             color = 'good'
             if (ccv <= BAD_CLOUDBASE) {
               color = 'bad'
             } else if (ccv <= LOW_CLOUDBASE) {
               color = 'ugh'
             }
-            td = td.replaceAll(cct, `<span class="${color}"/>${cct}</span>`)
+            if (cloudType === 'CB') {
+              cloudType = `<span class='danger'>CB</span>`
+            } else {
+              cloudType = ''
+            }
+            td = td.replaceAll(
+              matched,
+              `${layerType}<span class="${color}"/>${layerBase}${cloudType}</span>`,
+            )
           }
         }
-
-        // highlight current time
-        td = td.replaceAll(/(KPAO.+\n)/g, `<span class="current"/>$1</span>`)
         return td
       }
       function colorizefd(data) {
         let fd = data
         fd = fd
-          .split('\n\n')
-          .map(line => line.replace('\n', ' '))
-          .join('\n\n')
+          .split(`\n\n`)
+          .map(line => line.replace(/\n/g, ' '))
+          .join(`\n\n`)
         fd = fd.replaceAll(/\b(VFR)\b/g, `<span class="good"/>$1</span>`)
         fd = fd.replaceAll(/\b(MVFR)\b/g, `<span class="ugh"/>$1</span>`)
         fd = fd.replaceAll(/\b(IFR|LIFR)\b/g, `<span class="bad"/>$1</span>`)
@@ -566,6 +578,10 @@ This script directs YOUR device to access the WX information from AviationWeathe
 By using this script your agree that the author may not be held responsible IN ANY WAY SHAPE OR FORM for the use of this tool and that YOU are responsible for the actual the lookup and interpretation of weather information.
 
 <span style="color:red">Warning! Fly at your own risk.</span>
+
+Find the source code at 
+<a href="https://github.com/ahmadster/metafd/tree/main">https://github.com/ahmadster/metafd/tree/main</a>
+
 <center>
   <button id="infoButton" onClick="document.getElementById('info').style.display='none';">OK</button>
 </center>
