@@ -21,7 +21,7 @@
         padding: 0;
       }
       body {
-        background-color: blue;
+        background-color: black;
         color: #aaa;
         padding: 1rem;
         font-size: 0.9rem;
@@ -51,10 +51,25 @@
         display: block;
       }
       div.metar {
-        border-bottom: 1px dotted #555;
         display: block;
-        padding-bottom: 0.3rem;
         margin-bottom: -0.7rem;
+      }
+      span.metarIcon,
+      span.tafIcon {
+        margin-left: -1rem;
+        margin-right: 0.1rem;
+        position: relative;
+        top: -0.1rem;
+        font-size: 0.6rem;
+        color: white;
+        padding: 0.05rem;
+        border-radius: 0.2rem 0 0 0.2rem;
+      }
+      span.metarIcon {
+        background-color: royalblue;
+      }
+      span.tafIcon {
+        background-color: green;
       }
       *[current] {
         background-color: #0077aa55;
@@ -282,8 +297,12 @@
         Object.keys(db).forEach(x => {
           let a = db[x]
           data += `<div class='airport' icao='${x}'>`
-          if (a.metar) data += `<div class='metar'>${a.metar}</div>\n`
-          if (a.taf) data += `<div class='taf'>${tafLines(a.taf)}</div>\n`
+          if (a.metar)
+            data += `<div class='metar'><span class='metarIcon'>M</span>${a.metar}</div>\n`
+          if (a.taf)
+            data += `<div class='taf'><span class='tafIcon'>T</span>${tafLines(
+              a.taf,
+            )}</div>\n`
           data += '</div>\n'
         })
         return data
