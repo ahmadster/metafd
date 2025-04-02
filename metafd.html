@@ -40,7 +40,6 @@
       }
       #terms {
         color: #0077aa;
-        margin-top: -1.5rem;
       }
       div.airport,
       div.metar,
@@ -54,22 +53,39 @@
         display: block;
         margin-bottom: -0.7rem;
       }
+      span.airport {
+        color: yellow;
+      }
+      span.fmDay,
+      span.fmHour,
+      span.fmMinute {
+      }
+      span.fmDay {
+        color: deepskyblue;
+      }
+      span.fmHour {
+        color: lightblue;
+      }
+      span.fmMinute {
+        color: cadetblue;
+      }
       span.metarIcon,
       span.tafIcon {
         margin-left: -1rem;
-        margin-right: 0.1rem;
+        margin-right: 0rem;
         position: relative;
         top: -0.1rem;
         font-size: 0.6rem;
         color: white;
-        padding: 0.05rem;
+        padding: 0 0.05rem;
         border-radius: 0.2rem 0 0 0.2rem;
+        opacity: 0.9;
       }
       span.metarIcon {
-        background-color: royalblue;
+        background-color: rgba(65, 105, 225, 0.799);
       }
       span.tafIcon {
-        background-color: green;
+        background-color: rgba(32, 178, 171, 0.67);
       }
       *[current] {
         background-color: #0077aa55;
@@ -94,12 +110,16 @@
         display: flex;
         flex-flow: row nowrap;
         justify-content: space-between;
+        align-items: center;
         background-color: #0077aa55;
         left: 0;
         right: 0;
         top: 0;
         height: 1.5rem;
         font-size: 1.5rem;
+      }
+      div.retrieved {
+        font-size: 0.8rem;
       }
       .timeBox {
         display: flex;
@@ -108,9 +128,17 @@
         background-color: #002b3dd8;
         padding: 0 1rem 0 1rem;
         justify-content: center;
+        border-radius: 0 2rem 2rem 0;
       }
       .timeBox * {
         white-space: pre;
+      }
+      .timeBox .arrow {
+        color: white;
+        position: absolute;
+        left: 12rem;
+        z-index: 999;
+        font-size: 2rem;
       }
       #utcTime {
         color: white;
@@ -118,6 +146,7 @@
       #localTime {
         color: white;
       }
+
       .sliderDiv {
         display: flex;
         flex-flow: row nowrap;
@@ -134,16 +163,20 @@
         background: black;
         outline: none;
         opacity: 0.9;
+        padding-left: 1.7rem;
       }
 
       .slider::-webkit-slider-thumb {
         -webkit-appearance: none;
         appearance: none;
-        width: 4rem;
-        height: 4rem;
+        width: 3.5rem;
+        height: 3.5rem;
         background: #0077aa;
         cursor: pointer;
-        border-radius: 0 0.5rem 0.5rem 0;
+        /* border-radius: 0 1.5rem 0.5rem 0;*/
+        border-radius: 3rem;
+        outline: 0.2rem solid #053a5f;
+        outline-offset: 0.125rem;
       }
     </style>
     <script>
@@ -152,19 +185,28 @@
 
       function colorize(d) {
         let td = d
-        // the good stuff
+        // the good
         let gs = [/\bSKC\b/g, /\bCLR\b/g]
         for (const gsp of gs) {
           let m = td.match(gsp)
           if (!m) continue
           td = td.replaceAll(gsp, `<span class="good" />${m[0]}</span>`)
         }
-        // the bad stuff
-        gs = [/\bFG\b/g, /\bBR\b/g, /\bHZ\b/g]
+
+        // the bad
+        gs = [/\bFG\b/g, /\bBR\b/g, /\bHZ\b/g, /\bCB\b/g]
         for (const gsp of gs) {
           let m = td.match(gsp)
           if (!m) continue
           td = td.replaceAll(gsp, `<span class="bad"/>${m[0]}</span>`)
+        }
+
+        // the ugly
+        gs = [/\bSH\b/g, /\bRA\b/g, /\bSHRA\b/g]
+        for (const gsp of gs) {
+          let m = td.match(gsp)
+          if (!m) continue
+          td = td.replaceAll(gsp, `<span class="ugh"/>${m[0]}</span>`)
         }
 
         // other visibility
@@ -183,7 +225,7 @@
 
         // temp due points
         var color, p
-        p = / (\d?\d)\/(\d?\d) /g
+        p = /\b(\d?\d)\/(\d?\d)\b/g
         for (const m of td.matchAll(p)) {
           var [token, temp, due] = m
           color = 'good'
@@ -224,10 +266,10 @@
 
         // cover
         let cc = [
-          / ?SCT(\d\d\d) ?/g,
-          / ?FEW(\d\d\d) ?/g,
-          / ?BKN(\d\d\d) ?/g,
-          / ?OVC(\d\d\d) ?/g,
+          /\bSCT(\d\d\d)\b/g,
+          /\bFEW(\d\d\d)\b/g,
+          /\bBKN(\d\d\d)\b/g,
+          /\bOVC(\d\d\d)\b/g,
         ]
         for (const ccp of cc) {
           let m = td.matchAll(ccp)
@@ -252,6 +294,10 @@
       }
       function colorizefd(data) {
         let fd = data
+        fd = fd
+          .split('\n\n')
+          .map(line => line.replace('\n', ' '))
+          .join('\n\n')
         fd = fd.replaceAll(/\b(VFR)\b/g, `<span class="good"/>$1</span>`)
         fd = fd.replaceAll(/\b(MVFR)\b/g, `<span class="ugh"/>$1</span>`)
         fd = fd.replaceAll(/\b(IFR|LIFR)\b/g, `<span class="bad"/>$1</span>`)
@@ -271,7 +317,10 @@
             /^(?<airport>\S\S\S?\S?) (?<day>\d\d)(?<hour>\d\d)(?<minute>\d\d)Z/,
           )
           if (!m) return
-          m.groups.metar = x
+          m.groups.metar = x.replace(
+            /(?<airport>\S\S\S?\S?) (?<_day>\d\d)(?<_hour>\d\d)(?<_minute>\d\d)Z/,
+            `<span class='airport'>$<airport></span> <span class='fmDay'>$<_day></span><span class='fmHour'>$<_hour></span><span class='fmMinute'>$<_minute></span>Z`,
+          )
           db[m.groups.airport] = m.groups
         })
 
@@ -328,7 +377,10 @@
           if (m) {
             // found airport line
             line = m.groups
-            line.line = x
+            line.line = x.replace(
+              /(?<airport>\S\S\S?\S?) (?<_day>\d\d)(?<_hour>\d\d)(?<_minute>\d\d)Z (?<fday>\d\d)(?<fhour>\d\d)\/(?<tday>\d\d)(?<thour>\d\d)/,
+              `<span class='airport'>$<airport></span> <span class='fmDay'>$<_day></span><span class='fmHour'>$<_hour></span><span class='fmMinute'>$<_minute></span>Z <span class='fmDay'>$<fday></span><span class='fmHour'>$<fhour></span>/<span class='fmDay'>$<tday></span><span class='fmHour'>$<thour></span>`,
+            )
             let fday = parseInt(m.groups.fday)
             let fhour = parseInt(m.groups.fhour)
             let tday = parseInt(m.groups.tday)
@@ -356,7 +408,10 @@
           if (!line && m) {
             // found tempo line
             line = m.groups
-            line.line = x
+            line.line = x.replace(
+              /(?<tempo>TEMPO) (?<fday>\d\d)(?<fhour>\d\d)\/(?<tday>\d\d)(?<thour>\d\d)/,
+              `$<tempo> <span class='fmDay'>$<fday></span><span class='fmHour'>$<fhour></span>/<span class='fmDay'>$<tday></span><span class='fmHour'>$<thour></span>`,
+            )
             let fday = parseInt(m.groups.fday)
             let fhour = parseInt(m.groups.fhour)
             let tday = parseInt(m.groups.tday)
@@ -381,7 +436,10 @@
           if (!line && m) {
             // found fm line
             line = m.groups
-            line.line = x
+            line.line = x.replace(
+              /(?<fm>FM)(?<day>\d\d)(?<hour>\d\d)(?<minute>\d\d)/,
+              `$<fm><span class='fmDay'>$<day></span><span class='fmHour'>$<hour></span><span class='fmMinute'>$<minute></span>`,
+            )
             let fday = parseInt(m.groups.day)
             let fhour = parseInt(m.groups.hour)
             let fminute = parseInt(m.groups.minute)
@@ -519,17 +577,22 @@ By using this script your agree that the author may not be held responsible IN A
 
 
       `
+        if (currentTimestamp !== '') {
+          currentTimestamp = new Date(currentTimestamp)
+        } else {
+          currentTimestamp = new Date()
+        }
         let timeSlider = `
 <div class="headerDiv">
   <div >ME·TA·FD</div>
+  <div class="retrieved">${currentTimestamp.toLocaleTimeString()}</div>
   <div id="terms" onClick="document.getElementById('info').style.display='block';">
 ⇢ Terms of Use ⇠
   </div>
 </div>
 <div class="sliderDiv">
   <div class="timeBox">
-    <div id="localTime">local</div>
-    <div id="utcTime">utc</div>
+    <div id="localTime">local</div><div class="arrow">⇢</div><div id="utcTime">utc</div>
 </div>
     <input class="slider" type="range" id="timeSlider" min="0" max="30" value="0" oninput="timeSlid(event)"/>
 </div>`
@@ -540,23 +603,14 @@ By using this script your agree that the author may not be held responsible IN A
         let fd = ``
 
         window.setTimeout(timeSlid, 200)
-        if (currentTimestamp !== '') {
-          currentTimestamp = new Date(currentTimestamp)
-        } else {
-          currentTimestamp = new Date()
-        }
+
         // 13 numbers
         if (theMetars !== '') metar = theMetars
         if (theTAFs !== '') taf = theTAFs
         if (theFD !== '') fd = theFD
         let data = multiplex(metar, taf)
         document.body.innerHTML =
-          `Retrieved ${currentTimestamp.toLocaleTimeString()}\n\n` +
-          colorize(data) +
-          '\n\n<hr>' +
-          colorizefd(fd) +
-          timeSlider +
-          info
+          `` + colorize(data) + '\n\n<hr>' + colorizefd(fd) + timeSlider + info
       }
     </script>
   </head>
